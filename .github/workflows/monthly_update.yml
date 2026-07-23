@@ -1,0 +1,38 @@
+name: Monthly goals dataset update
+
+on:
+  schedule:
+    # Runs at 03:00 UTC on the 1st of every month
+    - cron: "0 3 1 * *"
+  workflow_dispatch: {}  # lets you trigger it manually from the Actions tab too
+
+permissions:
+  contents: write  # needed so the workflow can commit the updated CSV back
+
+jobs:
+  update-dataset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300  # generous ceiling; the incremental run should be much faster than this
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run incremental dataset update
+        working-directory: scripts
+        run: python build_dataset.py
+
+      - name: Commit and push updated dataset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/goals_dataset.csv data/checkpoint.json
+          git diff --cached --quiet || git commit -m "Automated monthly dataset update"
+          git push
